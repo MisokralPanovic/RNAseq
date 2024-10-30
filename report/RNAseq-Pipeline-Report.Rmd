@@ -2,7 +2,7 @@
 title: "RNAseq Pipeline Report"
 author: "Michal Varga"
 date: "`r Sys.Date()`"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -62,7 +62,7 @@ library(data.table)
 
 Load custom scripts and define colour palette.
 
-```{r volcano_and_palette}
+```{r volcano_and_palette, message=FALSE}
 here::i_am("README.md")
 source(here("scripts/volcano_plot.R"))
 pal <- brewer.pal(11,"RdBu")
@@ -129,26 +129,98 @@ dds <- dds[keep,]
 nrow(dds)
 ```
 
+## Exploratory Analysis and Visualisation
 ### Data Transformation
 
-#### Visualise IDK from Raw Data
+Tools for analysis of multidimensional data require the same range of variance at different ranges of the mean values (`homoskedasticity`). Raw count data freom RNAseq expreriments, however, have variance that grows with the mean. Transforming the dataset with transformations like **Variance Stabilising Transformation** (VST) will lead in `homoskedastic` data, by poroducing log2-like values high counts.
+
+#### Raw Count Data Skedasticity
 
 ```{r raw_dds_viz}
 meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
 ```
 
-#### RLog Trasnsformation
-
-```{r rlog_viz}
-rld <- rlog(dds)
-head(assay(rld))
-meanSdPlot(log(assay(rld)[rowSums(assay(rld))>30,]))
-```
-
-#### Variance Stabilising Transformation (VST)
+#### Variance Stabilising Transformation (VST) Processed Data Skedasticity
 
 ```{r vst_viz}
 vsd <- DESeq2::vst(dds)
 meanSdPlot(log(assay(vsd)[rowSums(assay(vsd))>0,]))
 ```
 
+### Principal Component Analysis (PCA)
+
+```{r pca}
+DESeq2::plotPCA(vsd, intgroup = 'Condition')
+```
+
+We see that 92% of the variance is due to the principal component (PC) 1, which seems to be the infection state.
+
+### Sample Distances
+
+```{r sample_distances_creation}
+sampleDists <- dist(t(assay(vsd)))
+sampleDistMatrix <- as.matrix(sampleDists)
+colnames(sampleDistMatrix) <- NULL
+```
+
+```{r sample_distances_heatmap}
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists,
+         col = colors)
+```
+
+We again observe the infected and uninfected samples being similar within their conditions.
+
+## Statistical Testing for Differences Attributable to Changes Between Conditions
+
+```{r deseq2_differential_expression_object}
+dds <- DESeq2::DESeq(dds)
+```
+
+### Dispersion Estimation
+
+The assumption that most genes are not differentially expressed is assessed by plotting the dispersion estimation.
+
+
+```{r dispersion_estimation}
+DESeq2::plotDispEsts(dds)
+```
+
+### Results Retrieval
+
+```{r dds_results}
+res <- results(dds)
+head(res)
+mcols(res, use.names = TRUE)
+summary(res)
+```
+
+```{r}
+res <- res[order(res$padj),]
+head(res)
+```
+
+```{r}
+hist(res$pvalue,breaks=seq(0,1,.01))
+```
+
+Following Schurch et al., (RNA, 2016) recommandations,  for 3 replicates per conditions:
+
+```{r}
+resSchurch <- results(dds, lfcThreshold = 0.5, alpha = 0.01)
+summary(resSchurch)
+```
+
+Volcano plot
+
+```{r volcano_plot}
+volcanoPlot(resSchurch)
+```
+
+MA plot
+
+```{r ma_plot}
+DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
+```
