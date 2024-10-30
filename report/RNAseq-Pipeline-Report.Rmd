@@ -35,6 +35,7 @@ BiocManager::install("AnnotationDbi")
 BiocManager::install("tximport")
 BiocManager::install("vsn")
 BiocManager::install("SummarizedExperiment")
+BiocManager::install("genefilter")
 ```
 
 Load `BiocManager` related libraries.
@@ -47,6 +48,7 @@ library("AnnotationDbi")
 library(tximport)
 library(vsn)
 library(SummarizedExperiment)
+library("genefilter")
 ```
 
 Load `CRAN` related libraries.
@@ -190,37 +192,99 @@ DESeq2::plotDispEsts(dds)
 
 ### Results Retrieval
 
+Following [Schurch et al., (RNA, 2016)](https://rnajournal.cshlp.org/content/22/6/839.full.pdf) recommendations, for 3 replicates per conditions:
+
 ```{r dds_results}
-res <- results(dds)
-head(res)
-mcols(res, use.names = TRUE)
-summary(res)
-```
-
-```{r}
-res <- res[order(res$padj),]
-head(res)
-```
-
-```{r}
-hist(res$pvalue,breaks=seq(0,1,.01))
-```
-
-Following Schurch et al., (RNA, 2016) recommandations,  for 3 replicates per conditions:
-
-```{r}
 resSchurch <- results(dds, lfcThreshold = 0.5, alpha = 0.01)
+resSchurch <- resSchurch[order(resSchurch$padj),]
+head(resSchurch)
 summary(resSchurch)
 ```
 
-Volcano plot
+```{r}
+hist(resSchurch$pvalue,breaks=seq(0,1,.01))
+```
+
+### Visualisations
+
+Visualisations assess the assumption that the majority of genes are not differentially expressed.
+
+#### Volcano plot
 
 ```{r volcano_plot}
 volcanoPlot(resSchurch)
 ```
 
-MA plot
+#### MA plot
 
 ```{r ma_plot}
 DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
+```
+
+### Adding Gene Annotations
+
+```{r}
+columns(org.Bt.eg.db)
+```
+
+
+```{r}
+ens.str <- substr(rownames(resSchurch),1,18)
+```
+
+
+```{r message=FALSE}
+resSchurch$symbol <- mapIds(org.Bt.eg.db,
+                            keys=ens.str,
+                            column="SYMBOL",
+                            keytype="ENSEMBL",
+                            multiVals="first")
+```
+
+
+```{r message=FALSE}
+resSchurch$gene_name <- mapIds(org.Bt.eg.db,
+                               keys=ens.str,
+                               column="GENENAME",
+                               keytype="ENSEMBL",
+                               multiVals="first")
+```
+
+```{r message=FALSE}
+resSchurch$go <- mapIds(org.Bt.eg.db,
+                        keys=ens.str,
+                        column="GO",
+                        keytype="ENSEMBL",
+                        multiVals="first")
+```
+
+```{r message=FALSE}
+resSchurch$ontology <- mapIds(org.Bt.eg.db,
+                              keys=ens.str,
+                              column="ONTOLOGY",
+                              keytype="ENSEMBL",
+                              multiVals="first")
+```
+
+
+```{r}
+head(resSchurch, 5) |> kable()
+```
+
+```{r}
+# subset significant results for resSchurch
+resSigSchurch <- subset(resSchurch, padj < 0.01)
+head(resSigSchurch[ order(resSigSchurch$log2FoldChange), ])
+head(resSigSchurch[ order(resSigSchurch$log2FoldChange, decreasing = TRUE), ])
+```
+
+### Heatmap of Top Variable Genes
+
+```{r}
+topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 15)
+
+var_matrix  <- assay(vsd)[ topVarGenes, ]
+var_matrix  <- var_matrix - rowMeans(var_matrix)
+
+pheatmap(var_matrix)
 ```

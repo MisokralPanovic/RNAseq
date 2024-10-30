@@ -131,6 +131,7 @@ res <- results(dds)
 head(res)
 mcols(res, use.names = TRUE)
 summary(res)
+
 res <- res[order(res$padj),]
 head(res)
 
