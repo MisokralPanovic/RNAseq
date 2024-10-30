@@ -1,5 +1,5 @@
 ---
-title: "RNAseq-Pipeline-Report"
+title: "RNAseq Pipeline Report"
 author: "Michal Varga"
 date: "`r Sys.Date()`"
 output: html_document
@@ -7,14 +7,148 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(kableExtra)
+library(rmarkdown)
 ```
 
-```{r}
+# Introduction
+
+# Preprocessing
+
+do this last
+
+# Differential Expression Analysis
+
+## Load Required Libraries
+
+Install scientific packages via `BiocManager`.
+
+```{r libraries_biocManager_install, eval=FALSE}
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
 BiocManager::install("DESeq2")
+BiocManager::install("org.Bt.eg.db")
+BiocManager::install("biomaRt")
+BiocManager::install("AnnotationDbi")
+BiocManager::install("tximport")
+BiocManager::install("vsn")
+BiocManager::install("SummarizedExperiment")
+```
+
+Load `BiocManager` related libraries.
+
+```{r libraries_biocManager_load, message=FALSE}
+library(DESeq2)
+library(org.Bt.eg.db)
+library("biomaRt")
+library("AnnotationDbi")
+library(tximport)
+library(vsn)
+library(SummarizedExperiment)
+```
+
+Load `CRAN` related libraries.
+
+```{r libraries_other_load, message=FALSE}
+library(here)
+library(LSD)
+library(RColorBrewer)
+library(tidyverse)
+library(pheatmap)
+library(data.table)
+```
+
+Load custom scripts and define colour palette.
+
+```{r volcano_and_palette}
+here::i_am("README.md")
+source(here("scripts/volcano_plot.R"))
+pal <- brewer.pal(11,"RdBu")
 ```
 
 
+## Load Count Data and Metadata
+
+1. Load count data and change the order of conditions.
+
+```{r load_counts}
+data <- as.matrix(read.table('../Data/WT40vsMock.counts', header = T))
+data <- data[,sort(colnames(data))] # reorder the conditions so they go control, condition
+```
+```{r load_counts_display, echo=FALSE, warning=FALSE}
+data |> head(10) |> kable()
+```
+
+2. Load count metadata and 
+
+```{r load_metadata}
+data.meta <- as.data.frame(read.csv('../Data/WT40_meta.csv', header = T))
+data.meta <- data.meta |> arrange(Names) # reorder the conditions so they go control, condition
+data.meta <- data.meta %>% remove_rownames %>% column_to_rownames(var="Names") # removes the colum name of sample names
+```
+```{r load_metadata_display, echo=FALSE, warning=FALSE}
+data.meta |> kable()
+```
+
+filters out viral transcripts (only leaves stuff starting with ENS)
+```{r}
+nrow(data)
+data <- data[rownames(data) %like% "ENS", ]
+nrow(data)
+```
+
+check if count sample names and metdata sample names are the same
+```{r}
+all(rownames(data.meta) %in% colnames(data))
+```
+
+## Create DESeq2 Object
+
+1. Create DESeq2 object.
+
+```{r deseq2_object_creation}
+dds <- DESeqDataSetFromMatrix(countData = data,
+                              colData = data.meta,
+                              design = ~ Condition)
+```
+
+2. Set `untreated` copndition as reference.
+
+```{r dds_reference}
+dds$Condition <- relevel(dds$Condition, ref = "untreated")
+```
+
+3. Filter genes with no counts.
+
+```{r dds_filter_no_counts}
+nrow(dds)
+keep <- rowSums(counts(dds)) > 1
+dds <- dds[keep,]
+nrow(dds)
+```
+
+### Data Transformation
+
+#### Visualise IDK from Raw Data
+
+```{r raw_dds_viz}
+meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
+```
+
+#### RLog Trasnsformation
+
+```{r rlog_viz}
+rld <- rlog(dds)
+head(assay(rld))
+meanSdPlot(log(assay(rld)[rowSums(assay(rld))>30,]))
+```
+
+#### Variance Stabilising Transformation (VST)
+
+```{r vst_viz}
+vsd <- DESeq2::vst(dds)
+meanSdPlot(log(assay(vsd)[rowSums(assay(vsd))>0,]))
+```
 
