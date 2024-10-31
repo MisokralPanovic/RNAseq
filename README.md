@@ -1,15 +1,22 @@
-RNAseq Pipeline Report
+Differential Expression Analysis of RNAseq Data
 ================
 Michal Varga
-2024-10-30
+2024-10-31
 
 # Introduction
 
-# Differential Expression Analysis
+This project presents a comprehensive differential expression analysis
+of RNA-seq data, a powerful approach for uncovering gene expression
+changes across different biological conditions. Using DESeq2, this
+analysis identifies genes with significant expression differences,
+shedding light on underlying biological processes, disease mechanisms,
+and treatment effects. By leveraging RNA-seq technology, we gain
+high-resolution insights into gene activity, enabling robust statistical
+testing and meaningful interpretation of complex biological datasets.
 
-## Load Required Libraries
+## Load Required Libraries and Scripts
 
-Install scientific packages via `BiocManager`.
+0.  (Optional) Install scientific packages via `BiocManager`.
 
 ``` r
 if (!require("BiocManager", quietly = TRUE))
@@ -20,7 +27,7 @@ BiocManager::install("org.Bt.eg.db")
 BiocManager::install("vsn")
 ```
 
-Load `BiocManager` related libraries.
+1.  Load `BiocManager` related libraries.
 
 ``` r
 library(DESeq2)
@@ -28,7 +35,7 @@ library(org.Bt.eg.db)
 library(vsn)
 ```
 
-Load `CRAN` related libraries.
+2.  Load `CRAN` related libraries.
 
 ``` r
 library(here)
@@ -38,7 +45,7 @@ library(pheatmap)
 library(data.table)
 ```
 
-Load custom scripts and define colour palette.
+3.  Load custom scripts and define colour palette.
 
 ``` r
 here::i_am("README.md")
@@ -68,12 +75,17 @@ data <- data[,sort(colnames(data))] # reorder the conditions so they go control,
 | ENSBTAG00000000141 | 850 | 842 | 685 | 345 | 719 | 611 |
 | ENSBTAG00000003927 | 3680 | 3580 | 2758 | 1680 | 3239 | 2826 |
 
-2.  Load count metadata and
+2.  Load count metadata, arrange it as before, and remove `Names` column
+    name.
 
 ``` r
 data.meta <- as.data.frame(read.csv('../Data/WT40_meta.csv', header = T))
-data.meta <- data.meta |> arrange(Names) # reorder the conditions so they go control, condition
-data.meta <- data.meta %>% remove_rownames %>% column_to_rownames(var="Names") # removes the colum name of sample names
+
+# reorder the conditions so they go control, condition
+data.meta <- data.meta |> arrange(Names)
+
+# removes the column name of sample names
+data.meta <- data.meta %>% remove_rownames %>% column_to_rownames(var="Names")
 ```
 
 |             | Condition |
@@ -85,7 +97,7 @@ data.meta <- data.meta %>% remove_rownames %>% column_to_rownames(var="Names") #
 | WT_40HR_2   | treated   |
 | WT_40HR_3   | treated   |
 
-filters out viral transcripts (only leaves stuff starting with ENS)
+3.  Filters out viral transcripts (only leaves genes starting with ENS).
 
 ``` r
 nrow(data)
@@ -100,7 +112,7 @@ nrow(data)
 
     ## [1] 27607
 
-check if count sample names and metdata sample names are the same
+4.  Assess if count sample names and metadata sample names are equal.
 
 ``` r
 all(rownames(data.meta) %in% colnames(data))
@@ -121,7 +133,7 @@ dds <- DESeqDataSetFromMatrix(countData = data,
     ## Warning in DESeqDataSet(se, design = design, ignoreRank): some variables in
     ## design formula are characters, converting to factors
 
-2.  Set `untreated` copndition as reference.
+2.  Set `untreated` condition as reference.
 
 ``` r
 dds$Condition <- relevel(dds$Condition, ref = "untreated")
@@ -143,9 +155,9 @@ nrow(dds)
 
     ## [1] 18236
 
-## Exploratory Analysis and Visualisation
+# Exploratory Analysis and Visualisation
 
-### Data Transformation
+## Data Transformation
 
 Tools for analysis of multidimensional data require the same range of
 variance at different ranges of the mean values (`homoskedasticity`).
@@ -154,7 +166,7 @@ grows with the mean. Transforming the dataset with transformations like
 **Variance Stabilising Transformation** (VST) will lead in
 `homoskedastic` data, by poroducing log2-like values high counts.
 
-#### Raw Count Data Skedasticity
+### Raw Count Data Skedasticity
 
 ``` r
 meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
@@ -165,7 +177,7 @@ meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
 
 ![](/report/RNAseq-Pipeline-Report_files/figure-gfm/raw_dds_viz-1.png)<!-- -->
 
-#### Variance Stabilising Transformation (VST) Processed Data Skedasticity
+### Variance Stabilising Transformation (VST) Processed Data Skedasticity
 
 ``` r
 vsd <- DESeq2::vst(dds)
@@ -174,7 +186,7 @@ meanSdPlot(log(assay(vsd)[rowSums(assay(vsd))>0,]))
 
 ![](/report/RNAseq-Pipeline-Report_files/figure-gfm/vst_viz-1.png)<!-- -->
 
-### Principal Component Analysis (PCA)
+## Principal Component Analysis (PCA)
 
 ``` r
 DESeq2::plotPCA(vsd, intgroup = 'Condition')
@@ -187,13 +199,17 @@ DESeq2::plotPCA(vsd, intgroup = 'Condition')
 We see that 92% of the variance is due to the principal component (PC)
 1, which seems to be the infection state.
 
-### Sample Distances
+## Sample Distances Plot
+
+1.  Prepare Sample Distances Matrix
 
 ``` r
 sampleDists <- dist(t(assay(vsd)))
 sampleDistMatrix <- as.matrix(sampleDists)
 colnames(sampleDistMatrix) <- NULL
 ```
+
+2.  Plot it as heatmap.
 
 ``` r
 colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
@@ -208,7 +224,9 @@ pheatmap(sampleDistMatrix,
 We again observe the infected and uninfected samples being similar
 within their conditions.
 
-## Statistical Testing for Differences Attributable to Changes Between Conditions
+# Statistical Testing for Differences Attributable to Changes Between Conditions
+
+1.  Create DESeq2 differential expression object.
 
 ``` r
 dds <- DESeq2::DESeq(dds)
@@ -226,10 +244,26 @@ dds <- DESeq2::DESeq(dds)
 
     ## fitting model and testing
 
-### Dispersion Estimation
+## Dispersion Estimation
 
-The assumption that most genes are not differentially expressed is
-assessed by plotting the dispersion estimation.
+In RNA-seq analysis, dispersion estimation is a critical step for
+accurately modeling gene expression variability. DESeq2 assumes that
+most genes are not differentially expressed, allowing it to estimate
+dispersion (or variability) more precisely by pooling information across
+genes.
+
+Dispersion reflects the extent to which gene counts deviate from the
+expected mean expression level across replicates. In DESeq2, this is
+modeled using the Negative Binomial distribution, which accounts for
+overdispersion commonly observed in RNA-seq data. Accurate dispersion
+estimation enhances the detection of true differences in gene expression
+between conditions by stabilizing variability in low-count genes,
+reducing noise, and moderating extreme dispersion values.
+
+The following plot shows gene-wise dispersion estimates against the mean
+expression level. The black points represent per-gene estimates, while
+the red line shows the fitted dispersion trend used by DESeq2 for
+normalization.
 
 ``` r
 DESeq2::plotDispEsts(dds)
@@ -237,56 +271,29 @@ DESeq2::plotDispEsts(dds)
 
 ![](/report/RNAseq-Pipeline-Report_files/figure-gfm/dispersion_estimation-1.png)<!-- -->
 
-### Results Retrieval
+## Results Retrieval
 
 Following [Schurch et al., (RNA,
 2016)](https://rnajournal.cshlp.org/content/22/6/839.full.pdf)
-recommendations, for 3 replicates per conditions:
+recommendations, for 3 replicates per conditions we selected only genes
+with a log fold change (LFC) of more than 0.5, and adjusted p-value
+(alpha) of more than 0.01.
 
-``` r
-res <- results(dds)
-res <- res[order(res$padj),]
-head(res)
-```
+This way we have extracted the list of statistically significant,
+differentialy expressed genes between the treated and untreated
+conditions.
 
-    ## log2 fold change (MLE): Condition treated vs untreated 
-    ## Wald test p-value: Condition treated vs untreated 
-    ## DataFrame with 6 rows and 6 columns
-    ##                     baseMean log2FoldChange     lfcSE      stat       pvalue
-    ##                    <numeric>      <numeric> <numeric> <numeric>    <numeric>
-    ## ENSBTAG00000017363   2331.26        1.56882 0.0719097   21.8165 1.61702e-105
-    ## ENSBTAG00000015591   5392.41        1.30885 0.0607338   21.5506 5.22375e-103
-    ## ENSBTAG00000013303   8085.92        1.31222 0.0632513   20.7461  1.32883e-95
-    ## ENSBTAG00000016169   2444.15        1.76847 0.0891588   19.8351  1.48264e-87
-    ## ENSBTAG00000030425   1850.59        1.65658 0.0911274   18.1787  7.60947e-74
-    ## ENSBTAG00000007390   1810.96        1.30085 0.0717844   18.1216  2.15366e-73
-    ##                            padj
-    ##                       <numeric>
-    ## ENSBTAG00000017363 2.31994e-101
-    ## ENSBTAG00000015591  3.74726e-99
-    ## ENSBTAG00000013303  6.35489e-92
-    ## ENSBTAG00000016169  5.31786e-84
-    ## ENSBTAG00000030425  2.18346e-70
-    ## ENSBTAG00000007390  5.14975e-70
-
-``` r
-summary(res)
-```
-
-    ## 
-    ## out of 18236 with nonzero total read count
-    ## adjusted p-value < 0.1
-    ## LFC > 0 (up)       : 2935, 16%
-    ## LFC < 0 (down)     : 2980, 16%
-    ## outliers [1]       : 0, 0%
-    ## low counts [2]     : 3889, 21%
-    ## (mean count < 5)
-    ## [1] see 'cooksCutoff' argument of ?results
-    ## [2] see 'independentFiltering' argument of ?results
+1.  Create results object with the thresholds mentioned above and order
+    the genes based on ascending adjusted p-value.
 
 ``` r
 resSchurch <- results(dds, lfcThreshold = 0.5, alpha = 0.01)
 resSchurch <- resSchurch[order(resSchurch$padj),]
+```
+
+2.  Evaluate the obtained results.
+
+``` r
 head(resSchurch)
 ```
 
@@ -325,18 +332,20 @@ summary(resSchurch)
     ## [1] see 'cooksCutoff' argument of ?results
     ## [2] see 'independentFiltering' argument of ?results
 
+3.  Construct histogram of p-values to assess their distribution.
+
 ``` r
 hist(resSchurch$pvalue,breaks=seq(0,1,.01))
 ```
 
-![](/report/RNAseq-Pipeline-Report_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/histogram_pvals-1.png)<!-- -->
 
-### Visualisations
+## Visual Assesment of Differentialy Expressed genes
 
 Visualisations assess the assumption that the majority of genes are not
 differentially expressed.
 
-#### Volcano plot
+### Volcano plot
 
 ``` r
 volcanoPlot(resSchurch)
@@ -346,7 +355,7 @@ volcanoPlot(resSchurch)
 
 ![](/report/RNAseq-Pipeline-Report_files/figure-gfm/volcano_plot-1.png)<!-- -->
 
-#### MA plot
+### MA plot
 
 ``` r
 DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
@@ -354,11 +363,18 @@ DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
 
 ![](/report/RNAseq-Pipeline-Report_files/figure-gfm/ma_plot-1.png)<!-- -->
 
-### Adding Gene Annotations
+## Adding Gene Annotations
+
+To obtain gene annotation data that in useful for possible downstream
+gene enrichment analyses, we called `mapIds` function.
+
+1.  Create a vector of ENSEMBL IDs from results object.
 
 ``` r
 ens.str <- substr(rownames(resSchurch),1,18)
 ```
+
+2.  Obtain gene symbol annotation.
 
 ``` r
 resSchurch$symbol <- mapIds(org.Bt.eg.db,
@@ -368,6 +384,8 @@ resSchurch$symbol <- mapIds(org.Bt.eg.db,
                             multiVals="first")
 ```
 
+3.  Obtain gene name annotation.
+
 ``` r
 resSchurch$gene_name <- mapIds(org.Bt.eg.db,
                                keys=ens.str,
@@ -376,6 +394,8 @@ resSchurch$gene_name <- mapIds(org.Bt.eg.db,
                                multiVals="first")
 ```
 
+4.  Obtain gene ontology ID annotation.
+
 ``` r
 resSchurch$go <- mapIds(org.Bt.eg.db,
                         keys=ens.str,
@@ -383,6 +403,8 @@ resSchurch$go <- mapIds(org.Bt.eg.db,
                         keytype="ENSEMBL",
                         multiVals="first")
 ```
+
+5.  Obtain gene ontology type annotation.
 
 ``` r
 resSchurch$ontology <- mapIds(org.Bt.eg.db,
@@ -400,41 +422,7 @@ resSchurch$ontology <- mapIds(org.Bt.eg.db,
 | ENSBTAG00000013303 | 8085.920 | 1.312220 | 0.0632513 | 20.74612 | 0 | 0 | ACSS2 | acyl-CoA synthetase short chain family member 2 | <GO:0003987> | MF |
 | ENSBTAG00000030425 | 1850.587 | 1.656580 | 0.0911274 | 18.17872 | 0 | 0 | ID3 | inhibitor of DNA binding 3 | <GO:0000122> | BP |
 
-``` r
-# subset significant results for resSchurch
-resSigSchurch <- subset(resSchurch, padj < 0.01)
-head(resSigSchurch[ order(resSigSchurch$log2FoldChange, decreasing = TRUE), ])
-```
-
-    ## log2 fold change (MLE): Condition treated vs untreated 
-    ## Wald test p-value: Condition treated vs untreated 
-    ## DataFrame with 6 rows and 10 columns
-    ##                     baseMean log2FoldChange     lfcSE      stat      pvalue
-    ##                    <numeric>      <numeric> <numeric> <numeric>   <numeric>
-    ## ENSBTAG00000039499   11.6516        6.30497  1.301574   4.84412 4.18419e-06
-    ## ENSBTAG00000003403   10.3108        4.12091  0.907983   4.53853 3.35158e-05
-    ## ENSBTAG00000015059   32.7763        3.88592  0.466674   8.32684 2.00195e-13
-    ## ENSBTAG00000014315   11.9482        3.78199  0.794605   4.75959 1.81465e-05
-    ## ENSBTAG00000044208   11.3846        3.67306  0.746187   4.92243 1.05876e-05
-    ## ENSBTAG00000013320  130.4270        3.33923  0.253651  13.16466 2.19523e-29
-    ##                           padj      symbol              gene_name          go
-    ##                      <numeric> <character>            <character> <character>
-    ## ENSBTAG00000039499 4.80692e-04   LOC782385 sentrin-specific pro..  GO:0006508
-    ## ENSBTAG00000003403 3.29354e-03       PADI2 peptidyl arginine de..  GO:0004668
-    ## ENSBTAG00000015059 8.71984e-11       MMP13 matrix metallopeptid..  GO:0004222
-    ## ENSBTAG00000014315 1.87467e-03        PBLD phenazine biosynthes..  GO:0005737
-    ## ENSBTAG00000044208 1.14517e-03       DUSP4 dual specificity pho..  GO:0001706
-    ## ENSBTAG00000013320 4.42229e-26      TSPAN1          tetraspanin 1  GO:0016020
-    ##                       ontology
-    ##                    <character>
-    ## ENSBTAG00000039499          BP
-    ## ENSBTAG00000003403          MF
-    ## ENSBTAG00000015059          MF
-    ## ENSBTAG00000014315          CC
-    ## ENSBTAG00000044208          BP
-    ## ENSBTAG00000013320          CC
-
-### Heatmap of Top Variable Genes
+## Heatmap of Top Variable Genes
 
 ``` r
 topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 15)
