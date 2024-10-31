@@ -30,12 +30,7 @@ if (!require("BiocManager", quietly = TRUE))
 
 BiocManager::install("DESeq2")
 BiocManager::install("org.Bt.eg.db")
-BiocManager::install("biomaRt")
-BiocManager::install("AnnotationDbi")
-BiocManager::install("tximport")
 BiocManager::install("vsn")
-BiocManager::install("SummarizedExperiment")
-BiocManager::install("genefilter")
 ```
 
 Load `BiocManager` related libraries.
@@ -43,19 +38,13 @@ Load `BiocManager` related libraries.
 ```{r libraries_biocManager_load, message=FALSE}
 library(DESeq2)
 library(org.Bt.eg.db)
-library("biomaRt")
-library("AnnotationDbi")
-library(tximport)
 library(vsn)
-library(SummarizedExperiment)
-library("genefilter")
 ```
 
 Load `CRAN` related libraries.
 
 ```{r libraries_other_load, message=FALSE}
 library(here)
-library(LSD)
 library(RColorBrewer)
 library(tidyverse)
 library(pheatmap)
@@ -195,6 +184,13 @@ DESeq2::plotDispEsts(dds)
 Following [Schurch et al., (RNA, 2016)](https://rnajournal.cshlp.org/content/22/6/839.full.pdf) recommendations, for 3 replicates per conditions:
 
 ```{r dds_results}
+res <- results(dds)
+res <- res[order(res$padj),]
+head(res)
+summary(res)
+```
+
+```{r dds_results_schurch}
 resSchurch <- results(dds, lfcThreshold = 0.5, alpha = 0.01)
 resSchurch <- resSchurch[order(resSchurch$padj),]
 head(resSchurch)
@@ -223,17 +219,13 @@ DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
 
 ### Adding Gene Annotations
 
-```{r}
-columns(org.Bt.eg.db)
-```
 
-
-```{r}
+```{r ensemb_string}
 ens.str <- substr(rownames(resSchurch),1,18)
 ```
 
 
-```{r message=FALSE}
+```{r annot_symbol, message=FALSE}
 resSchurch$symbol <- mapIds(org.Bt.eg.db,
                             keys=ens.str,
                             column="SYMBOL",
@@ -241,8 +233,7 @@ resSchurch$symbol <- mapIds(org.Bt.eg.db,
                             multiVals="first")
 ```
 
-
-```{r message=FALSE}
+```{r annot_genename, message=FALSE}
 resSchurch$gene_name <- mapIds(org.Bt.eg.db,
                                keys=ens.str,
                                column="GENENAME",
@@ -250,7 +241,7 @@ resSchurch$gene_name <- mapIds(org.Bt.eg.db,
                                multiVals="first")
 ```
 
-```{r message=FALSE}
+```{r annot_go, message=FALSE}
 resSchurch$go <- mapIds(org.Bt.eg.db,
                         keys=ens.str,
                         column="GO",
@@ -258,7 +249,7 @@ resSchurch$go <- mapIds(org.Bt.eg.db,
                         multiVals="first")
 ```
 
-```{r message=FALSE}
+```{r annot_ontology, message=FALSE}
 resSchurch$ontology <- mapIds(org.Bt.eg.db,
                               keys=ens.str,
                               column="ONTOLOGY",
@@ -267,20 +258,19 @@ resSchurch$ontology <- mapIds(org.Bt.eg.db,
 ```
 
 
-```{r}
+```{r annotated_res, echo=FALSE}
 head(resSchurch, 5) |> kable()
 ```
 
-```{r}
+```{r top_log2_change}
 # subset significant results for resSchurch
 resSigSchurch <- subset(resSchurch, padj < 0.01)
-head(resSigSchurch[ order(resSigSchurch$log2FoldChange), ])
 head(resSigSchurch[ order(resSigSchurch$log2FoldChange, decreasing = TRUE), ])
 ```
 
 ### Heatmap of Top Variable Genes
 
-```{r}
+```{r top_var_heatmap}
 topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 15)
 
 var_matrix  <- assay(vsd)[ topVarGenes, ]

@@ -21,12 +21,7 @@ if (!require("BiocManager", quietly = TRUE))
 
 BiocManager::install("DESeq2")
 BiocManager::install("org.Bt.eg.db")
-BiocManager::install("biomaRt")
-BiocManager::install("AnnotationDbi")
-BiocManager::install("tximport")
 BiocManager::install("vsn")
-BiocManager::install("SummarizedExperiment")
-BiocManager::install("genefilter")
 ```
 
 Load `BiocManager` related libraries.
@@ -34,19 +29,13 @@ Load `BiocManager` related libraries.
 ``` r
 library(DESeq2)
 library(org.Bt.eg.db)
-library("biomaRt")
-library("AnnotationDbi")
-library(tximport)
 library(vsn)
-library(SummarizedExperiment)
-library("genefilter")
 ```
 
 Load `CRAN` related libraries.
 
 ``` r
 library(here)
-library(LSD)
 library(RColorBrewer)
 library(tidyverse)
 library(pheatmap)
@@ -178,10 +167,6 @@ meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
     ## Warning: Removed 46 rows containing non-finite outside the scale range
     ## (`stat_binhex()`).
 
-    ## Warning: Computation failed in `stat_binhex()`.
-    ## Caused by error in `compute_group()`:
-    ## ! The package "hexbin" is required for `stat_bin_hex()`.
-
 ![](RNAseq-Pipeline-Report_files/figure-gfm/raw_dds_viz-1.png)<!-- -->
 
 #### Variance Stabilising Transformation (VST) Processed Data Skedasticity
@@ -190,10 +175,6 @@ meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
 vsd <- DESeq2::vst(dds)
 meanSdPlot(log(assay(vsd)[rowSums(assay(vsd))>0,]))
 ```
-
-    ## Warning: Computation failed in `stat_binhex()`.
-    ## Caused by error in `compute_group()`:
-    ## ! The package "hexbin" is required for `stat_bin_hex()`.
 
 ![](RNAseq-Pipeline-Report_files/figure-gfm/vst_viz-1.png)<!-- -->
 
@@ -267,6 +248,47 @@ Following [Schurch et al., (RNA,
 recommendations, for 3 replicates per conditions:
 
 ``` r
+res <- results(dds)
+res <- res[order(res$padj),]
+head(res)
+```
+
+    ## log2 fold change (MLE): Condition treated vs untreated 
+    ## Wald test p-value: Condition treated vs untreated 
+    ## DataFrame with 6 rows and 6 columns
+    ##                     baseMean log2FoldChange     lfcSE      stat       pvalue
+    ##                    <numeric>      <numeric> <numeric> <numeric>    <numeric>
+    ## ENSBTAG00000017363   2331.26        1.56882 0.0719097   21.8165 1.61702e-105
+    ## ENSBTAG00000015591   5392.41        1.30885 0.0607338   21.5506 5.22375e-103
+    ## ENSBTAG00000013303   8085.92        1.31222 0.0632513   20.7461  1.32883e-95
+    ## ENSBTAG00000016169   2444.15        1.76847 0.0891588   19.8351  1.48264e-87
+    ## ENSBTAG00000030425   1850.59        1.65658 0.0911274   18.1787  7.60947e-74
+    ## ENSBTAG00000007390   1810.96        1.30085 0.0717844   18.1216  2.15366e-73
+    ##                            padj
+    ##                       <numeric>
+    ## ENSBTAG00000017363 2.31994e-101
+    ## ENSBTAG00000015591  3.74726e-99
+    ## ENSBTAG00000013303  6.35489e-92
+    ## ENSBTAG00000016169  5.31786e-84
+    ## ENSBTAG00000030425  2.18346e-70
+    ## ENSBTAG00000007390  5.14975e-70
+
+``` r
+summary(res)
+```
+
+    ## 
+    ## out of 18236 with nonzero total read count
+    ## adjusted p-value < 0.1
+    ## LFC > 0 (up)       : 2935, 16%
+    ## LFC < 0 (down)     : 2980, 16%
+    ## outliers [1]       : 0, 0%
+    ## low counts [2]     : 3889, 21%
+    ## (mean count < 5)
+    ## [1] see 'cooksCutoff' argument of ?results
+    ## [2] see 'independentFiltering' argument of ?results
+
+``` r
 resSchurch <- results(dds, lfcThreshold = 0.5, alpha = 0.01)
 resSchurch <- resSchurch[order(resSchurch$padj),]
 head(resSchurch)
@@ -324,6 +346,8 @@ differentially expressed.
 volcanoPlot(resSchurch)
 ```
 
+    ## Loading required package: LSD
+
 ![](RNAseq-Pipeline-Report_files/figure-gfm/volcano_plot-1.png)<!-- -->
 
 #### MA plot
@@ -335,16 +359,6 @@ DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
 ![](RNAseq-Pipeline-Report_files/figure-gfm/ma_plot-1.png)<!-- -->
 
 ### Adding Gene Annotations
-
-``` r
-columns(org.Bt.eg.db)
-```
-
-    ##  [1] "ACCNUM"       "ALIAS"        "ENSEMBL"      "ENSEMBLPROT"  "ENSEMBLTRANS"
-    ##  [6] "ENTREZID"     "ENZYME"       "EVIDENCE"     "EVIDENCEALL"  "GENENAME"    
-    ## [11] "GENETYPE"     "GO"           "GOALL"        "IPI"          "ONTOLOGY"    
-    ## [16] "ONTOLOGYALL"  "PATH"         "PFAM"         "PMID"         "PROSITE"     
-    ## [21] "REFSEQ"       "SYMBOL"       "UNIPROT"
 
 ``` r
 ens.str <- substr(rownames(resSchurch),1,18)
@@ -382,10 +396,6 @@ resSchurch$ontology <- mapIds(org.Bt.eg.db,
                               multiVals="first")
 ```
 
-``` r
-head(resSchurch, 5) |> kable()
-```
-
 |  | baseMean | log2FoldChange | lfcSE | stat | pvalue | padj | symbol | gene_name | go | ontology |
 |:---|---:|---:|---:|---:|---:|---:|:---|:---|:---|:---|
 | ENSBTAG00000017363 | 2331.260 | 1.568821 | 0.0719097 | 21.81652 | 0 | 0 | SAT1 | spermidine/spermine N1-acetyltransferase 1 | <GO:0005829> | CC |
@@ -397,38 +407,6 @@ head(resSchurch, 5) |> kable()
 ``` r
 # subset significant results for resSchurch
 resSigSchurch <- subset(resSchurch, padj < 0.01)
-head(resSigSchurch[ order(resSigSchurch$log2FoldChange), ])
-```
-
-    ## log2 fold change (MLE): Condition treated vs untreated 
-    ## Wald test p-value: Condition treated vs untreated 
-    ## DataFrame with 6 rows and 10 columns
-    ##                     baseMean log2FoldChange     lfcSE      stat      pvalue
-    ##                    <numeric>      <numeric> <numeric> <numeric>   <numeric>
-    ## ENSBTAG00000049591   18.7214       -3.00173 0.5712804  -5.25440 5.95705e-06
-    ## ENSBTAG00000018240  142.9454       -1.72350 0.1849625  -9.31810 1.85960e-11
-    ## ENSBTAG00000046333   85.6072       -1.46092 0.2295375  -6.36462 1.41754e-05
-    ## ENSBTAG00000011982  693.4226       -1.40681 0.1076679 -13.06618 1.84636e-17
-    ## ENSBTAG00000020773  127.8159       -1.32201 0.1863642  -7.09371 5.14962e-06
-    ## ENSBTAG00000026156 1046.1613       -1.15015 0.0895994 -12.83655 1.99115e-13
-    ##                           padj      symbol              gene_name          go
-    ##                      <numeric> <character>            <character> <character>
-    ## ENSBTAG00000049591 6.66693e-04          NA                     NA          NA
-    ## ENSBTAG00000018240 5.99386e-09      CYP2S1 cytochrome P450 fami..  GO:0005506
-    ## ENSBTAG00000046333 1.50297e-03          NA                     NA          NA
-    ## ENSBTAG00000011982 1.41695e-14       BATF3 basic leucine zipper..  GO:0000978
-    ## ENSBTAG00000020773 5.80359e-04        CTSW            cathepsin W  GO:0004197
-    ## ENSBTAG00000026156 8.71984e-11       VGLL3 vestigial like famil..  GO:0005634
-    ##                       ontology
-    ##                    <character>
-    ## ENSBTAG00000049591          NA
-    ## ENSBTAG00000018240          MF
-    ## ENSBTAG00000046333          NA
-    ## ENSBTAG00000011982          MF
-    ## ENSBTAG00000020773          MF
-    ## ENSBTAG00000026156          CC
-
-``` r
 head(resSigSchurch[ order(resSigSchurch$log2FoldChange, decreasing = TRUE), ])
 ```
 
@@ -471,4 +449,4 @@ var_matrix  <- var_matrix - rowMeans(var_matrix)
 pheatmap(var_matrix)
 ```
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+![](RNAseq-Pipeline-Report_files/figure-gfm/top_var_heatmap-1.png)<!-- -->
