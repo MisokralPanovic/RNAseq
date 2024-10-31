@@ -1,5 +1,0 @@
-install.packages("pathfindR")
-
-
-
-

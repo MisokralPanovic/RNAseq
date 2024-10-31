@@ -14,9 +14,6 @@ library(rmarkdown)
 
 # Introduction
 
-# Preprocessing
-
-do this last
 
 # Differential Expression Analysis
 

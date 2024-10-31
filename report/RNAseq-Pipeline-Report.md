@@ -5,10 +5,6 @@ Michal Varga
 
 # Introduction
 
-# Preprocessing
-
-do this last
-
 # Differential Expression Analysis
 
 ## Load Required Libraries

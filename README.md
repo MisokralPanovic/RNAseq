@@ -5,10 +5,6 @@ Michal Varga
 
 # Introduction
 
-# Preprocessing
-
-do this last
-
 # Differential Expression Analysis
 
 ## Load Required Libraries
@@ -21,11 +17,7 @@ if (!require("BiocManager", quietly = TRUE))
 
 BiocManager::install("DESeq2")
 BiocManager::install("org.Bt.eg.db")
-BiocManager::install("biomaRt")
-BiocManager::install("AnnotationDbi")
-BiocManager::install("tximport")
 BiocManager::install("vsn")
-BiocManager::install("SummarizedExperiment")
 ```
 
 Load `BiocManager` related libraries.
@@ -33,18 +25,13 @@ Load `BiocManager` related libraries.
 ``` r
 library(DESeq2)
 library(org.Bt.eg.db)
-library("biomaRt")
-library("AnnotationDbi")
-library(tximport)
 library(vsn)
-library(SummarizedExperiment)
 ```
 
 Load `CRAN` related libraries.
 
 ``` r
 library(here)
-library(LSD)
 library(RColorBrewer)
 library(tidyverse)
 library(pheatmap)
@@ -176,11 +163,7 @@ meanSdPlot(log(assay(dds)[rowSums(assay(dds))>30,]))
     ## Warning: Removed 46 rows containing non-finite outside the scale range
     ## (`stat_binhex()`).
 
-    ## Warning: Computation failed in `stat_binhex()`.
-    ## Caused by error in `compute_group()`:
-    ## ! The package "hexbin" is required for `stat_bin_hex()`.
-
-![](RNAseq-Pipeline-Report_files/figure-gfm/raw_dds_viz-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/raw_dds_viz-1.png)<!-- -->
 
 #### Variance Stabilising Transformation (VST) Processed Data Skedasticity
 
@@ -189,11 +172,7 @@ vsd <- DESeq2::vst(dds)
 meanSdPlot(log(assay(vsd)[rowSums(assay(vsd))>0,]))
 ```
 
-    ## Warning: Computation failed in `stat_binhex()`.
-    ## Caused by error in `compute_group()`:
-    ## ! The package "hexbin" is required for `stat_bin_hex()`.
-
-![](RNAseq-Pipeline-Report_files/figure-gfm/vst_viz-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/vst_viz-1.png)<!-- -->
 
 ### Principal Component Analysis (PCA)
 
@@ -203,7 +182,7 @@ DESeq2::plotPCA(vsd, intgroup = 'Condition')
 
     ## using ntop=500 top features by variance
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/pca-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/pca-1.png)<!-- -->
 
 We see that 92% of the variance is due to the principal component (PC)
 1, which seems to be the infection state.
@@ -224,7 +203,7 @@ pheatmap(sampleDistMatrix,
          col = colors)
 ```
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/sample_distances_heatmap-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/sample_distances_heatmap-1.png)<!-- -->
 
 We again observe the infected and uninfected samples being similar
 within their conditions.
@@ -256,65 +235,16 @@ assessed by plotting the dispersion estimation.
 DESeq2::plotDispEsts(dds)
 ```
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/dispersion_estimation-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/dispersion_estimation-1.png)<!-- -->
 
 ### Results Retrieval
 
+Following [Schurch et al., (RNA,
+2016)](https://rnajournal.cshlp.org/content/22/6/839.full.pdf)
+recommendations, for 3 replicates per conditions:
+
 ``` r
 res <- results(dds)
-head(res)
-```
-
-    ## log2 fold change (MLE): Condition treated vs untreated 
-    ## Wald test p-value: Condition treated vs untreated 
-    ## DataFrame with 6 rows and 6 columns
-    ##                      baseMean log2FoldChange     lfcSE      stat      pvalue
-    ##                     <numeric>      <numeric> <numeric> <numeric>   <numeric>
-    ## ENSBTAG00000032047   91.18763     -0.1536233 0.2019398 -0.760738 4.46813e-01
-    ## ENSBTAG00000003922 2548.77433      0.0378022 0.0693323  0.545232 5.85594e-01
-    ## ENSBTAG00000003923  380.38206      1.2145474 0.1244516  9.759193 1.68490e-22
-    ## ENSBTAG00000010652    4.97386      1.0254395 0.8350752  1.227961 2.19462e-01
-    ## ENSBTAG00000003925 1482.90822     -0.0558817 0.0767374 -0.728219 4.66480e-01
-    ## ENSBTAG00000000140  233.10300      0.1972210 0.1488627  1.324852 1.85220e-01
-    ##                           padj
-    ##                      <numeric>
-    ## ENSBTAG00000032047 6.07970e-01
-    ## ENSBTAG00000003922 7.23084e-01
-    ## ENSBTAG00000003923 1.80398e-20
-    ## ENSBTAG00000010652 3.67057e-01
-    ## ENSBTAG00000003925 6.25592e-01
-    ## ENSBTAG00000000140 3.23791e-01
-
-``` r
-mcols(res, use.names = TRUE)
-```
-
-    ## DataFrame with 6 rows and 2 columns
-    ##                        type            description
-    ##                 <character>            <character>
-    ## baseMean       intermediate mean of normalized c..
-    ## log2FoldChange      results log2 fold change (ML..
-    ## lfcSE               results standard error: Cond..
-    ## stat                results Wald statistic: Cond..
-    ## pvalue              results Wald test p-value: C..
-    ## padj                results   BH adjusted p-values
-
-``` r
-summary(res)
-```
-
-    ## 
-    ## out of 18236 with nonzero total read count
-    ## adjusted p-value < 0.1
-    ## LFC > 0 (up)       : 2935, 16%
-    ## LFC < 0 (down)     : 2980, 16%
-    ## outliers [1]       : 0, 0%
-    ## low counts [2]     : 3889, 21%
-    ## (mean count < 5)
-    ## [1] see 'cooksCutoff' argument of ?results
-    ## [2] see 'independentFiltering' argument of ?results
-
-``` r
 res <- res[order(res$padj),]
 head(res)
 ```
@@ -340,16 +270,47 @@ head(res)
     ## ENSBTAG00000007390  5.14975e-70
 
 ``` r
-hist(res$pvalue,breaks=seq(0,1,.01))
+summary(res)
 ```
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
-
-Following Schurch et al., (RNA, 2016) recommandations, for 3 replicates
-per conditions:
+    ## 
+    ## out of 18236 with nonzero total read count
+    ## adjusted p-value < 0.1
+    ## LFC > 0 (up)       : 2935, 16%
+    ## LFC < 0 (down)     : 2980, 16%
+    ## outliers [1]       : 0, 0%
+    ## low counts [2]     : 3889, 21%
+    ## (mean count < 5)
+    ## [1] see 'cooksCutoff' argument of ?results
+    ## [2] see 'independentFiltering' argument of ?results
 
 ``` r
 resSchurch <- results(dds, lfcThreshold = 0.5, alpha = 0.01)
+resSchurch <- resSchurch[order(resSchurch$padj),]
+head(resSchurch)
+```
+
+    ## log2 fold change (MLE): Condition treated vs untreated 
+    ## Wald test p-value: Condition treated vs untreated 
+    ## DataFrame with 6 rows and 6 columns
+    ##                     baseMean log2FoldChange     lfcSE      stat      pvalue
+    ##                    <numeric>      <numeric> <numeric> <numeric>   <numeric>
+    ## ENSBTAG00000017363   2331.26        1.56882 0.0719097   21.8165 2.84963e-50
+    ## ENSBTAG00000016169   2444.15        1.76847 0.0891588   19.8351 3.10972e-46
+    ## ENSBTAG00000015591   5392.41        1.30885 0.0607338   21.5506 9.09871e-41
+    ## ENSBTAG00000013303   8085.92        1.31222 0.0632513   20.7461 4.82161e-38
+    ## ENSBTAG00000030425   1850.59        1.65658 0.0911274   18.1787 3.27899e-37
+    ## ENSBTAG00000006599    329.68        2.17490 0.1334879   16.2929 2.05895e-36
+    ##                           padj
+    ##                      <numeric>
+    ## ENSBTAG00000017363 4.59246e-46
+    ## ENSBTAG00000016169 2.50581e-42
+    ## ENSBTAG00000015591 4.88783e-37
+    ## ENSBTAG00000013303 1.94263e-34
+    ## ENSBTAG00000030425 1.05688e-33
+    ## ENSBTAG00000006599 5.53034e-33
+
+``` r
 summary(resSchurch)
 ```
 
@@ -364,18 +325,124 @@ summary(resSchurch)
     ## [1] see 'cooksCutoff' argument of ?results
     ## [2] see 'independentFiltering' argument of ?results
 
-Volcano plot
+``` r
+hist(resSchurch$pvalue,breaks=seq(0,1,.01))
+```
+
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+
+### Visualisations
+
+Visualisations assess the assumption that the majority of genes are not
+differentially expressed.
+
+#### Volcano plot
 
 ``` r
 volcanoPlot(resSchurch)
 ```
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/volcano_plot-1.png)<!-- -->
+    ## Loading required package: LSD
 
-MA plot
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/volcano_plot-1.png)<!-- -->
+
+#### MA plot
 
 ``` r
 DESeq2::plotMA(resSchurch, ylim = c(-5, 5))
 ```
 
-![](RNAseq-Pipeline-Report_files/figure-gfm/ma_plot-1.png)<!-- -->
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/ma_plot-1.png)<!-- -->
+
+### Adding Gene Annotations
+
+``` r
+ens.str <- substr(rownames(resSchurch),1,18)
+```
+
+``` r
+resSchurch$symbol <- mapIds(org.Bt.eg.db,
+                            keys=ens.str,
+                            column="SYMBOL",
+                            keytype="ENSEMBL",
+                            multiVals="first")
+```
+
+``` r
+resSchurch$gene_name <- mapIds(org.Bt.eg.db,
+                               keys=ens.str,
+                               column="GENENAME",
+                               keytype="ENSEMBL",
+                               multiVals="first")
+```
+
+``` r
+resSchurch$go <- mapIds(org.Bt.eg.db,
+                        keys=ens.str,
+                        column="GO",
+                        keytype="ENSEMBL",
+                        multiVals="first")
+```
+
+``` r
+resSchurch$ontology <- mapIds(org.Bt.eg.db,
+                              keys=ens.str,
+                              column="ONTOLOGY",
+                              keytype="ENSEMBL",
+                              multiVals="first")
+```
+
+|  | baseMean | log2FoldChange | lfcSE | stat | pvalue | padj | symbol | gene_name | go | ontology |
+|:---|---:|---:|---:|---:|---:|---:|:---|:---|:---|:---|
+| ENSBTAG00000017363 | 2331.260 | 1.568821 | 0.0719097 | 21.81652 | 0 | 0 | SAT1 | spermidine/spermine N1-acetyltransferase 1 | <GO:0005829> | CC |
+| ENSBTAG00000016169 | 2444.148 | 1.768473 | 0.0891588 | 19.83509 | 0 | 0 | ID1 | inhibitor of DNA binding 1 | <GO:0000122> | BP |
+| ENSBTAG00000015591 | 5392.414 | 1.308851 | 0.0607338 | 21.55062 | 0 | 0 | SQSTM1 | sequestosome 1 | <GO:0000423> | BP |
+| ENSBTAG00000013303 | 8085.920 | 1.312220 | 0.0632513 | 20.74612 | 0 | 0 | ACSS2 | acyl-CoA synthetase short chain family member 2 | <GO:0003987> | MF |
+| ENSBTAG00000030425 | 1850.587 | 1.656580 | 0.0911274 | 18.17872 | 0 | 0 | ID3 | inhibitor of DNA binding 3 | <GO:0000122> | BP |
+
+``` r
+# subset significant results for resSchurch
+resSigSchurch <- subset(resSchurch, padj < 0.01)
+head(resSigSchurch[ order(resSigSchurch$log2FoldChange, decreasing = TRUE), ])
+```
+
+    ## log2 fold change (MLE): Condition treated vs untreated 
+    ## Wald test p-value: Condition treated vs untreated 
+    ## DataFrame with 6 rows and 10 columns
+    ##                     baseMean log2FoldChange     lfcSE      stat      pvalue
+    ##                    <numeric>      <numeric> <numeric> <numeric>   <numeric>
+    ## ENSBTAG00000039499   11.6516        6.30497  1.301574   4.84412 4.18419e-06
+    ## ENSBTAG00000003403   10.3108        4.12091  0.907983   4.53853 3.35158e-05
+    ## ENSBTAG00000015059   32.7763        3.88592  0.466674   8.32684 2.00195e-13
+    ## ENSBTAG00000014315   11.9482        3.78199  0.794605   4.75959 1.81465e-05
+    ## ENSBTAG00000044208   11.3846        3.67306  0.746187   4.92243 1.05876e-05
+    ## ENSBTAG00000013320  130.4270        3.33923  0.253651  13.16466 2.19523e-29
+    ##                           padj      symbol              gene_name          go
+    ##                      <numeric> <character>            <character> <character>
+    ## ENSBTAG00000039499 4.80692e-04   LOC782385 sentrin-specific pro..  GO:0006508
+    ## ENSBTAG00000003403 3.29354e-03       PADI2 peptidyl arginine de..  GO:0004668
+    ## ENSBTAG00000015059 8.71984e-11       MMP13 matrix metallopeptid..  GO:0004222
+    ## ENSBTAG00000014315 1.87467e-03        PBLD phenazine biosynthes..  GO:0005737
+    ## ENSBTAG00000044208 1.14517e-03       DUSP4 dual specificity pho..  GO:0001706
+    ## ENSBTAG00000013320 4.42229e-26      TSPAN1          tetraspanin 1  GO:0016020
+    ##                       ontology
+    ##                    <character>
+    ## ENSBTAG00000039499          BP
+    ## ENSBTAG00000003403          MF
+    ## ENSBTAG00000015059          MF
+    ## ENSBTAG00000014315          CC
+    ## ENSBTAG00000044208          BP
+    ## ENSBTAG00000013320          CC
+
+### Heatmap of Top Variable Genes
+
+``` r
+topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 15)
+
+var_matrix  <- assay(vsd)[ topVarGenes, ]
+var_matrix  <- var_matrix - rowMeans(var_matrix)
+
+pheatmap(var_matrix)
+```
+
+![](/report/RNAseq-Pipeline-Report_files/figure-gfm/top_var_heatmap-1.png)<!-- -->
